@@ -26,20 +26,56 @@ router.post('/', async (req, res) => {
         res.status(201).json(newPlaylist[0]);
     } catch (error) {
         console.error('Error creating playlist:', error);
+        console.error('Error code:', error.code);
+        console.error('Error sqlState:', error.sqlState);
+        console.error('Error sqlMessage:', error.sqlMessage);
         
-        // Handle user_id field error
-        if (error.code === 'ER_NO_DEFAULT_FOR_FIELD' && error.message.includes('user_id')) {
-            return res.status(500).json({ 
-                error: 'Database schema issue: user_id field exists. Please run: node fix-user-id.js',
-                details: error.message,
-                code: error.code
-            });
+        // Provide specific error messages based on error type
+        let errorMessage = 'Failed to create playlist';
+        let statusCode = 500;
+        let hint = '';
+        
+        // Handle database connection errors
+        if (error.code === 'ECONNREFUSED') {
+            errorMessage = 'Cannot connect to database. Please check if MySQL server is running.';
+            statusCode = 503;
+            hint = 'Make sure MySQL server is running and accessible from your deployment environment.';
+        } else if (error.code === 'ER_ACCESS_DENIED_ERROR') {
+            errorMessage = 'Database access denied. Please check your database credentials.';
+            statusCode = 503;
+            hint = 'Verify DB_USER and DB_PASSWORD in your environment variables (or .env file).';
+        } else if (error.code === 'ER_BAD_DB_ERROR') {
+            errorMessage = 'Database does not exist.';
+            statusCode = 503;
+            hint = 'Create the database or check DB_NAME in your environment variables. Run: node setup-db.js';
+        } else if (error.code === 'ER_NO_SUCH_TABLE') {
+            errorMessage = 'Database tables not found.';
+            statusCode = 503;
+            hint = 'Tables need to be created. Run: node setup-db.js';
+        } else if (error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT') {
+            errorMessage = 'Cannot reach database server.';
+            statusCode = 503;
+            hint = 'Check DB_HOST in your environment variables. Make sure the database server is accessible from your deployment.';
+        } else if (error.code === 'ER_NO_DEFAULT_FOR_FIELD' && error.message.includes('user_id')) {
+            errorMessage = 'Database schema issue: user_id field exists.';
+            statusCode = 500;
+            hint = 'Run: node fix-user-id.js to fix the table structure.';
+        } else if (error.code === 'PROTOCOL_CONNECTION_LOST' || error.code === 'PROTOCOL_ENQUEUE_AFTER_QUIT') {
+            errorMessage = 'Database connection lost.';
+            statusCode = 503;
+            hint = 'Database connection was interrupted. Please try again.';
+        } else if (error.code === 'ECONNRESET') {
+            errorMessage = 'Database connection was reset.';
+            statusCode = 503;
+            hint = 'The database connection was reset. Please check your database server status.';
         }
         
-        res.status(500).json({ 
-            error: 'Failed to create playlist',
-            details: error.message,
-            code: error.code
+        res.status(statusCode).json({ 
+            error: errorMessage,
+            details: error.message || error.sqlMessage,
+            code: error.code,
+            sqlState: error.sqlState,
+            hint: hint || 'Check server console logs for more details.'
         });
     }
 });

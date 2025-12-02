@@ -454,7 +454,37 @@ async function createPlaylist() {
         player.showToast(`Playlist "${escapeHtml(name)}" created and selected. You can now upload songs!`, 'success');
     } catch (error) {
         console.error('Failed to create playlist:', error);
-        showError('Failed to create playlist');
+        console.error('Error details:', {
+            message: error.message,
+            hint: error.hint,
+            code: error.code,
+            details: error.details
+        });
+        
+        // Show detailed error message
+        let errorMsg = error.message || 'Failed to create playlist';
+        
+        // Check if error has additional details
+        if (error.details) {
+            errorMsg = error.details;
+        }
+        
+        // Add hint if available
+        if (error.hint) {
+            errorMsg += '\n\n' + error.hint;
+        }
+        
+        // Check for common deployment issues
+        if (errorMsg.includes('Database') || errorMsg.includes('database') || errorMsg.includes('ECONNREFUSED') || errorMsg.includes('ER_ACCESS_DENIED')) {
+            errorMsg = 'Database Connection Issue:\n' + errorMsg + 
+                      '\n\nDeployment Checklist:\n' +
+                      '1. Environment variables set in deployment platform\n' +
+                      '2. MySQL server accessible from deployment\n' +
+                      '3. Database and tables created\n' +
+                      '4. Correct DB_HOST (not localhost in production)';
+        }
+        
+        showError(errorMsg);
     }
 }
 

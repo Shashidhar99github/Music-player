@@ -61,7 +61,24 @@ const playlistsApi = {
             },
             body: JSON.stringify({ name }),
         });
-        return handleResponse(response);
+        
+        // Handle response with better error details
+        if (!response.ok) {
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch (e) {
+                throw new Error(`Failed to create playlist: ${response.status} ${response.statusText}`);
+            }
+            
+            const error = new Error(errorData.error || 'Failed to create playlist');
+            if (errorData.details) error.details = errorData.details;
+            if (errorData.hint) error.hint = errorData.hint;
+            if (errorData.code) error.code = errorData.code;
+            throw error;
+        }
+        
+        return response.json();
     },
 
     // Update a playlist

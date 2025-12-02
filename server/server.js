@@ -73,6 +73,8 @@ app.use((err, req, res, next) => {
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
     console.log(`Upload directory: ${uploadDir}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Database: ${process.env.DB_NAME || 'music_app'} @ ${process.env.DB_HOST || 'localhost'}`);
 });
 
 // Handle unhandled promise rejections

@@ -1,11 +1,28 @@
 // API Service - Handles all API calls to the backend
-const API_BASE_URL = 'http://localhost:3000/api';
+// Use relative URL for deployment compatibility
+const API_BASE_URL = '/api';
 
 // Helper function to handle API responses
 async function handleResponse(response) {
     if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.message || 'Something went wrong');
+        let errorMessage = 'Something went wrong';
+        try {
+            const error = await response.json();
+            errorMessage = error.error || error.message || error.details || errorMessage;
+            
+            // Add status code info for debugging
+            if (response.status === 404) {
+                errorMessage = 'Resource not found. Please check your connection.';
+            } else if (response.status === 500) {
+                errorMessage = 'Server error. Please try again later.';
+            } else if (response.status === 0 || response.status === 'NetworkError') {
+                errorMessage = 'Network error. Please check if the server is running and accessible.';
+            }
+        } catch (e) {
+            // If JSON parsing fails, use status text
+            errorMessage = response.statusText || `HTTP ${response.status} error`;
+        }
+        throw new Error(errorMessage);
     }
     return response.json();
 }
@@ -102,7 +119,11 @@ const tracksApi = {
             });
             
             xhr.addEventListener('error', () => {
-                reject(new Error('Network error during upload. Please check your connection.'));
+                let errorMsg = 'Network error during upload. Please check:';
+                errorMsg += '\n1. Your internet connection';
+                errorMsg += '\n2. The server is running and accessible';
+                errorMsg += '\n3. CORS settings allow uploads';
+                reject(new Error(errorMsg));
             });
             
             xhr.addEventListener('abort', () => {

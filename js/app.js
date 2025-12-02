@@ -234,12 +234,37 @@ function initEventListeners() {
     });
     
     // Upload
-    document.getElementById('upload-btn')?.addEventListener('click', () => {
-        if (!currentPlaylistId) {
-            showError('Please select a playlist first');
-            return;
+    document.getElementById('upload-btn')?.addEventListener('click', async () => {
+        // Check if any playlists exist first
+        try {
+            const playlists = await playlistsApi.getAll();
+            
+            if (playlists.length === 0) {
+                // No playlists exist, prompt user to create one
+                if (confirm('No playlists found. Would you like to create a new playlist first?')) {
+                    showCreatePlaylistModal();
+                    return;
+                }
+                return;
+            }
+            
+            if (!currentPlaylistId) {
+                // Playlists exist but none selected
+                showError('Please select a playlist from the dropdown menu first, or create a new one using the + button');
+                // Open the playlist dropdown to help user
+                const dropdown = document.getElementById('playlist-dropdown');
+                if (dropdown) {
+                    dropdown.click();
+                }
+                return;
+            }
+            
+            // All good, trigger file selection
+            document.getElementById('file-input').click();
+        } catch (error) {
+            console.error('Error checking playlists:', error);
+            showError('Unable to load playlists. Please refresh the page and try again.');
         }
-        document.getElementById('file-input').click();
     });
     
     document.getElementById('file-input')?.addEventListener('change', handleFileUpload);
@@ -396,11 +421,14 @@ async function createPlaylist() {
         // Close the modal
         document.getElementById('create-playlist-modal')?.classList.remove('active');
         
-        // Load the new playlist
-        loadPlaylist(newPlaylist.id);
+        // Reload playlists to update dropdown
+        await loadPlaylists();
+        
+        // Load the new playlist (this will also set currentPlaylistId)
+        await loadPlaylist(newPlaylist.id);
         
         // Show success message
-        player.showToast(`Playlist "${escapeHtml(name)}" created`, 'success');
+        player.showToast(`Playlist "${escapeHtml(name)}" created and selected. You can now upload songs!`, 'success');
     } catch (error) {
         console.error('Failed to create playlist:', error);
         showError('Failed to create playlist');
@@ -585,8 +613,12 @@ async function handleFileUpload(e) {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
     
+    // Reset file input to allow re-uploading the same file
+    e.target.value = '';
+    
+    // Check if playlist is selected
     if (!currentPlaylistId) {
-        showError('Please select a playlist first');
+        showError('Please select a playlist first. You can create one using the + button or select from the dropdown.');
         return;
     }
     

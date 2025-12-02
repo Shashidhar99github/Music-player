@@ -341,7 +341,30 @@ async function loadPlaylists() {
         renderPlaylists(playlists);
     } catch (error) {
         console.error('Failed to load playlists:', error);
-        showError('Failed to load playlists');
+        
+        // Show detailed error message
+        let errorMsg = error.message || 'Failed to load playlists';
+        if (error.hint) {
+            errorMsg += '\n' + error.hint;
+        }
+        
+        // Check for common database errors
+        if (errorMsg.includes('Database') || errorMsg.includes('database')) {
+            errorMsg = 'Database connection failed. Please check:\n' +
+                      '1. MySQL server is running\n' +
+                      '2. .env file exists in server/ directory\n' +
+                      '3. Database credentials are correct\n' +
+                      '4. Run: cd server && node setup-db.js';
+        }
+        
+        showError(errorMsg);
+        
+        // Also show in console for debugging
+        console.error('Playlist loading error details:', {
+            message: error.message,
+            hint: error.hint,
+            stack: error.stack
+        });
     }
 }
 

@@ -51,9 +51,35 @@ router.get('/', async (req, res) => {
         res.json(playlists);
     } catch (error) {
         console.error('Error fetching playlists:', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch playlists',
-            details: error.message 
+        console.error('Error code:', error.code);
+        console.error('Error sqlState:', error.sqlState);
+        
+        // Provide specific error messages based on error type
+        let errorMessage = 'Failed to fetch playlists';
+        let statusCode = 500;
+        
+        if (error.code === 'ECONNREFUSED') {
+            errorMessage = 'Cannot connect to database. Please check if MySQL server is running.';
+            statusCode = 503;
+        } else if (error.code === 'ER_ACCESS_DENIED_ERROR') {
+            errorMessage = 'Database access denied. Please check your database credentials in .env file.';
+            statusCode = 503;
+        } else if (error.code === 'ER_BAD_DB_ERROR') {
+            errorMessage = 'Database does not exist. Please run: cd server && node setup-db.js';
+            statusCode = 503;
+        } else if (error.code === 'ER_NO_SUCH_TABLE') {
+            errorMessage = 'Database tables not found. Please run: cd server && node setup-db.js';
+            statusCode = 503;
+        } else if (error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT') {
+            errorMessage = 'Cannot reach database server. Please check DB_HOST in .env file.';
+            statusCode = 503;
+        }
+        
+        res.status(statusCode).json({ 
+            error: errorMessage,
+            details: error.message,
+            code: error.code,
+            hint: 'Check server console for more details. Make sure .env file exists in server/ directory with correct database credentials.'
         });
     }
 });

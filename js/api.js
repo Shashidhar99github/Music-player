@@ -6,15 +6,27 @@ const API_BASE_URL = '/api';
 async function handleResponse(response) {
     if (!response.ok) {
         let errorMessage = 'Something went wrong';
+        let errorHint = '';
+        
         try {
             const error = await response.json();
             errorMessage = error.error || error.message || error.details || errorMessage;
+            errorHint = error.hint || '';
             
             // Add status code info for debugging
             if (response.status === 404) {
                 errorMessage = 'Resource not found. Please check your connection.';
+            } else if (response.status === 503) {
+                // Service unavailable - likely database connection issue
+                errorMessage = errorMessage || 'Database connection failed. Please check server configuration.';
+                if (errorHint) {
+                    errorMessage += ' ' + errorHint;
+                }
             } else if (response.status === 500) {
-                errorMessage = 'Server error. Please try again later.';
+                errorMessage = errorMessage || 'Server error. Please try again later.';
+                if (error.code) {
+                    console.error('Server error code:', error.code);
+                }
             } else if (response.status === 0 || response.status === 'NetworkError') {
                 errorMessage = 'Network error. Please check if the server is running and accessible.';
             }
@@ -22,7 +34,12 @@ async function handleResponse(response) {
             // If JSON parsing fails, use status text
             errorMessage = response.statusText || `HTTP ${response.status} error`;
         }
-        throw new Error(errorMessage);
+        
+        const fullError = new Error(errorMessage);
+        if (errorHint) {
+            fullError.hint = errorHint;
+        }
+        throw fullError;
     }
     return response.json();
 }
